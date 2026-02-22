@@ -25,6 +25,7 @@ lake build GenSeq 2>&1 | tail -40
 
 - `GenSeq/` -- Lean 4 source files
 - `HANDOFF.md` -- Mathematical analysis and implementation plan
+- `AGENTS.md` -- Agent workflow rules (issue tracking, session completion, push policy)
 
 ## Workflow
 
