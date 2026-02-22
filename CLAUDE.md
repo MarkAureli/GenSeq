@@ -34,6 +34,6 @@ lake build GenSeq 2>&1 | tail -40
    mathematical background.
 2. Read `AGENTS.md` for workflow rules (issue tracking, push policy).
 3. Work on the next sorry listed in `## Current Status`, following its proof sketch.
-4. Write code in **10–50 LOC increments**: one definition or one lemma at a time.
+4. Write code in **10–50 LOC increments**.
 5. Build after every increment: `lake build GenSeq 2>&1 | tail -40`
 6. Sorries with documented goal states = success; never leave a sorry undocumented.
