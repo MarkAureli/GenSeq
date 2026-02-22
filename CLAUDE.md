@@ -30,6 +30,7 @@ lake build GenSeq 2>&1 | tail -40
 ## Workflow
 
 1. Read `HANDOFF.md` first
+2. Read `AGENTS.md` next
 2. Follow the **Implementation Order** in `HANDOFF.md` step by step
 3. Write code in **10–50 LOC increments**: one definition or one lemma at a time
 4. Build after every increment: `lake build GenSeq 2>&1 | tail -40`
