@@ -339,3 +339,52 @@ The inductive step:
 - **Sorries as milestones**: Leave `sambalePerm_sends_zero` as a `sorry` initially and
   first close `sambale_isGeneratingSeq` conditionally on it — this validates the inductive
   structure before tackling the hardest sub-lemma.
+
+- **`Finset.prod` vs `List.prod`**: `Finset.prod` requires `CommMonoid`, but `Equiv.Perm`
+  is non-commutative.  Use `List.prod` for `sambalePerm` (ordered product of swaps via
+  `List.range`).
+
+- **`Nat.lt_min` does not exist**: Use `lt_min_iff` (from `Mathlib.Order.MinMax`).
+  For `j + 2^i < n` from `j < n - 2^i`, use `Nat.lt_sub_iff_add_lt.mp`.
+  For `j < n` from `j + K < n`, use `lt_of_le_of_lt (Nat.le_add_right j K) h`.
+
+- **`finSuccAboveEquiv 0`**: The right Equiv to use with `extendDomainHom` is
+  `finSuccAboveEquiv 0 : Fin n ≃ {x : Fin (n+1) // x ≠ 0}`.  `mapR n` is exactly
+  `Equiv.Perm.extendDomainHom (finSuccAboveEquiv 0)`.
+
+- **`image_orderedSpan_of_hom` direction**: The theorem is `f '' orderedSpan l = orderedSpan
+  (l.map f)`.  In `mapR_preserves_isGeneratingSeq`, rewrite from RHS to LHS using
+  `← image_orderedSpan_of_hom`.
+
+- **Lean 4 `rw` rewrites ALL occurrences**: Unlike Lean 3, `rw [h]` replaces every
+  occurrence of the LHS, not just the first.
+
+---
+
+## Session Log
+
+### Session 2025-02-22
+
+**Completed:**
+- Created `GenSeq/OrderedSpan.lean`: `orderedSpan` (via `List.foldl`), `IsGeneratingSeq`,
+  `orderedSpan_nil/append_singleton`, `one_mem_orderedSpan`, `image_orderedSpan_of_hom`.
+  All proofs complete (no sorry).
+- Created `GenSeq/MapR.lean`: `stabZero`, `mapR` (= `extendDomainHom (finSuccAboveEquiv 0)`),
+  `mapR_apply_zero`, `mapR_injective`, `mapR_range_le_stabZero`,
+  `mapR_preserves_isGeneratingSeq`.  One sorry: `stabZero_le_mapR_range` (the surjectivity
+  direction of Prop 5.10).
+- Created `GenSeq/Sambale.lean`: `capLog`, `strideCount`, `sambalePerm` (via `List.prod`),
+  `sambale`, `orderedSpan_append_le_right/left`, base cases of `sambale_isGeneratingSeq`.
+  Three sorries: `sambalePerm_mul_self` (Prop 5.15), `sambalePerm_prod_apply_zero`
+  (step-i lemma), inductive step of `sambale_isGeneratingSeq`.
+- Updated `GenSeq/Basic.lean` to re-export all modules.
+- Full project builds: `lake build GenSeq` succeeds.
+
+**Next steps (in order):**
+1. Prove `stabZero_le_mapR_range` in `MapR.lean` — given `τ` with `τ 0 = 0`, define
+   `σ k = (τ k.succ).pred (τ.injective.ne (Fin.succ_ne_zero k) (by rwa [mapR_apply_zero]))`.
+2. Prove `sambalePerm_mul_self` (Prop 5.15) — show pairwise disjointness of transpositions
+   via `j < 2^i ≤ j' < j' + 2^i` when `j < j'`, then use `Equiv.swap_comm` and
+   `Equiv.swap_mul_self`.
+3. Prove `sambalePerm_prod_apply_zero` — sub-induction on bits of `m`.
+4. Complete inductive step of `sambale_isGeneratingSeq` using steps 1–3.
