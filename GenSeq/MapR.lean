@@ -32,12 +32,34 @@ theorem mapR_range_le_stabZero : (mapR n).range ≤ stabZero n := by
     Every permutation fixing 0 arises from some permutation of Fin n. -/
 theorem stabZero_le_mapR_range : stabZero n ≤ (mapR n).range := by
   intro τ hτ
-  simp only [stabZero, MulAction.mem_stabilizer_iff] at hτ
-  -- hτ : τ 0 = 0. Define σ k := (τ k.succ).pred (h k).
-  -- Then mapR σ = τ because: mapR σ 0 = 0 = τ 0, and for i ≠ 0,
-  -- mapR σ i = (finSuccAboveEquiv 0 (σ (i.pred hi))) = (σ (i.pred hi)).succ
-  --          = ((τ (i.pred hi).succ).pred _).succ = τ (i.pred hi).succ = τ i.
-  sorry
+  simp only [stabZero, MulAction.mem_stabilizer_iff, Equiv.Perm.smul_def] at hτ
+  -- hτ : τ 0 = 0
+  simp only [MonoidHom.mem_range]
+  -- τ x ≠ 0 ↔ x ≠ 0 (since τ fixes 0 and is injective)
+  have h_ne : ∀ x : Fin (n + 1), τ x ≠ 0 ↔ x ≠ 0 := fun x =>
+    ⟨fun hτx h => hτx (h ▸ hτ),
+     fun hx h => hx (τ.injective (h.trans hτ.symm))⟩
+  -- Restrict τ to {x ≠ 0}, then conjugate by finSuccAboveEquiv 0 to get Perm (Fin n)
+  let σ' := (finSuccAboveEquiv 0).symm.permCongr (τ.subtypePerm h_ne)
+  refine ⟨σ', ?_⟩
+  simp only [mapR, Equiv.Perm.extendDomainHom_apply]
+  apply Equiv.Perm.ext
+  intro k
+  by_cases hk : k = 0
+  · subst hk
+    -- Use have to let Lean infer e and f from the expected type
+    have h0 : σ'.extendDomain (finSuccAboveEquiv 0) 0 = 0 :=
+      Equiv.Perm.extendDomain_apply_not_subtype _ _ (not_ne_iff.mpr rfl)
+    simp [h0, hτ]
+  · -- Express k as ↑(finSuccAboveEquiv 0 a) to apply extendDomain_apply_image
+    let a := (finSuccAboveEquiv 0).symm ⟨k, hk⟩
+    have hka : k = ↑(finSuccAboveEquiv 0 a) := by simp [a]
+    have himg : σ'.extendDomain (finSuccAboveEquiv 0) k =
+        ↑(finSuccAboveEquiv 0 (σ' a)) := by
+      rw [hka]; exact Equiv.Perm.extendDomain_apply_image _ _ _
+    rw [himg]
+    simp [σ', a, Equiv.permCongr_apply, Equiv.Perm.subtypePerm_apply,
+          Equiv.apply_symm_apply]
 
 /-- (Proposition 5.10) `mapR` is a group isomorphism from Perm(Fin n) to `stabZero n`. -/
 theorem mapR_range_eq_stabZero : (mapR n).range = stabZero n :=

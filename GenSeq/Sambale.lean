@@ -31,13 +31,67 @@ def sambalePerm (n i : ℕ) : Equiv.Perm (Fin n) :=
       Equiv.swap ⟨j, lt_of_le_of_lt (Nat.le_add_right j _) h⟩ ⟨j + 2^i, h⟩
     else (1 : Equiv.Perm (Fin n))).prod
 
-/-- (Proposition 5.15) Each `ξ_{n,i}` is an involution. The transpositions `(j, j+2^i)` are
-    pairwise disjoint because if `j < j'` then `j < 2^i ≤ j' < j' + 2^i`.
+/-- Product of pairwise-commuting involutions is itself an involution. -/
+private lemma list_prod_sq_eq_one {G : Type*} [Group G] (l : List G)
+    (hinv : ∀ x ∈ l, x * x = 1)
+    (hcomm : ∀ x ∈ l, ∀ y ∈ l, Commute x y) :
+    l.prod * l.prod = 1 := by
+  induction l with
+  | nil => simp
+  | cons a t ih =>
+    rw [List.prod_cons]
+    have ha2 : a * a = 1 := hinv a List.mem_cons_self
+    have ht_sq : t.prod * t.prod = 1 := ih
+      (fun x hx => hinv x (List.mem_cons_of_mem a hx))
+      (fun x hx y hy => hcomm x (List.mem_cons_of_mem a hx) y (List.mem_cons_of_mem a hy))
+    have hcomm_ta : Commute t.prod a :=
+      Commute.list_prod_left t a (fun x hx =>
+        (hcomm a List.mem_cons_self x (List.mem_cons_of_mem a hx)).symm)
+    calc (a * t.prod) * (a * t.prod)
+        = a * (t.prod * a) * t.prod := by group
+      _ = a * (a * t.prod) * t.prod := by rw [hcomm_ta]
+      _ = (a * a) * (t.prod * t.prod) := by group
+      _ = 1 := by rw [ha2, ht_sq, mul_one]
 
-    Remaining goal:
-      n i : ℕ ⊢ sambalePerm n i * sambalePerm n i = 1 -/
+/-- (Proposition 5.15) Each `ξ_{n,i}` is an involution. The transpositions `(j, j+2^i)` are
+    pairwise disjoint because if `j < j'` then `j < 2^i ≤ j' < j' + 2^i`. -/
 theorem sambalePerm_mul_self (n i : ℕ) : sambalePerm n i * sambalePerm n i = 1 := by
-  sorry
+  unfold sambalePerm
+  apply list_prod_sq_eq_one
+  · -- Each element is an involution
+    intro x hx
+    simp only [List.mem_map, List.mem_range] at hx
+    obtain ⟨j, hj, rfl⟩ := hx
+    have hjn : j + 2 ^ i < n := strideCount_hi hj
+    simp only [dif_pos hjn, Equiv.swap_mul_self]
+  · -- Elements pairwise commute (swaps on disjoint supports)
+    intro x hx y hy
+    simp only [List.mem_map, List.mem_range] at hx hy
+    obtain ⟨j₁, hj₁, rfl⟩ := hx
+    obtain ⟨j₂, hj₂, rfl⟩ := hy
+    have hjn₁ : j₁ + 2 ^ i < n := strideCount_hi hj₁
+    have hjn₂ : j₂ + 2 ^ i < n := strideCount_hi hj₂
+    simp only [dif_pos hjn₁, dif_pos hjn₂]
+    by_cases hjne : j₁ = j₂
+    · subst hjne; exact Commute.refl _
+    · apply Equiv.Perm.Disjoint.commute
+      have hj₁lt : j₁ < 2 ^ i := lt_of_lt_of_le hj₁ (Nat.min_le_right _ _)
+      have hj₂lt : j₂ < 2 ^ i := lt_of_lt_of_le hj₂ (Nat.min_le_right _ _)
+      intro x
+      by_cases hx₁ : x.val = j₁
+      · right
+        apply Equiv.swap_apply_of_ne_of_ne
+        · intro h; exact absurd (congr_arg Fin.val h) (show x.val ≠ j₂ from by omega)
+        · intro h; exact absurd (congr_arg Fin.val h) (show x.val ≠ j₂ + 2 ^ i from by omega)
+      · by_cases hx₂ : x.val = j₁ + 2 ^ i
+        · right
+          apply Equiv.swap_apply_of_ne_of_ne
+          · intro h; exact absurd (congr_arg Fin.val h) (show x.val ≠ j₂ from by omega)
+          · intro h; exact absurd (congr_arg Fin.val h) (show x.val ≠ j₂ + 2 ^ i from by omega)
+        · left
+          apply Equiv.swap_apply_of_ne_of_ne
+          · intro h; exact hx₁ (congr_arg Fin.val h)
+          · intro h; exact hx₂ (congr_arg Fin.val h)
 
 /-! ## The Sambale sequence Ξ_n -/
 
@@ -69,6 +123,17 @@ theorem sambalePerm_prod_apply_zero
     ((List.range (capLog n)).map (fun k =>
         sambalePerm n k ^ if hk : k < capLog n then (s ⟨k, hk⟩).val else 0)
       |>.prod) (⟨0, hn⟩ : Fin n) = m := by
+  -- Strategy: induct on K = capLog n, maintaining the invariant that after processing
+  -- bits 0..K-1 the partial prefix product applied to 0 equals ∑_{k<K} s_k 2^k.
+  --
+  -- At bit K with running position i₀ = ∑_{k<K} s_k 2^k < 2^K:
+  --   s_K = 0 → factor is 1, position unchanged.
+  --   s_K = 1 → sambalePerm n K contains swap(i₀, i₀ + 2^K); all other swaps in
+  --              sambalePerm n K have j ≠ i₀ and j+2^K ≠ i₀ (since i₀ < 2^K ≤ j'
+  --              for all other j'), so they fix i₀ by Equiv.swap_apply_of_ne_of_ne.
+  --              Thus (sambalePerm n K) i₀ = i₀ + 2^K.
+  --
+  -- Useful: `Fin.val_fin_lt`, `Nat.sum_range_bits`, `List.prod_map_reverse`
   sorry
 
 /-! ## Monotonicity of orderedSpan under list concatenation -/
@@ -143,4 +208,24 @@ theorem sambale_isGeneratingSeq (n : ℕ) : IsGeneratingSeq (sambale n) ⊤ := b
       --   h_stab : orderedSpan ((sambale (m+1)).map (mapR (m+1))) = ↑(mapR (m+1)).range
       --   ⊢ Set.univ = orderedSpan ((sambale (m+1)).map (mapR (m+1)) ++
       --                              (List.range (capLog (m+2))).map (sambalePerm (m+2)))
+      --
+      -- Strategy (depends on sambalePerm_prod_apply_zero):
+      -- Let A = Ξ_{m+1}.map R, B = ξ_list. Show ∀ σ, σ ∈ orderedSpan (A ++ B).
+      -- (1) Extract binary digits s of σ(0).val; let π_s be the product of ξ^{s_k}.
+      --     By sambalePerm_prod_apply_zero, π_s 0 = σ 0.
+      -- (2) π_s ∈ orderedSpan B (each factor ξ^{s_k} with s_k∈{0,1} is in orderedSpan B
+      --     since ξ^0=1∈orderedSpan and ξ^1=ξ∈orderedSpan; use involutivity for ξ^0=1).
+      -- (3) π_s⁻¹ * σ fixes 0: (π_s⁻¹*σ) 0 = π_s⁻¹ (σ 0) = π_s⁻¹ (π_s 0) = 0.
+      --     So π_s⁻¹*σ ∈ stabZero (m+1) = (mapR (m+1)).range.
+      --     By mapR_range_eq_stabZero and h_stab: π_s⁻¹*σ ∈ orderedSpan A.
+      -- (4) Need: orderedSpan A × orderedSpan B → orderedSpan (A ++ B).
+      --     Generalise: ∀ a ∈ orderedSpan A, ∀ b ∈ orderedSpan B,
+      --       b * a ∈ orderedSpan (A ++ B)  [note: orderedSpan appends to LEFT].
+      --     This follows by induction on A using orderedSpan_append_le_left/right.
+      --     Actually need π_s * (π_s⁻¹*σ): π_s from B-part of orderedSpan (A++B),
+      --     π_s⁻¹*σ from A-part; their product σ is in orderedSpan (A++B) by a
+      --     "product-membership" lemma. Prove helper:
+      --       orderedSpan_mul_mem : b ∈ orderedSpan l₂ → a ∈ orderedSpan l₁ →
+      --         b * a ∈ orderedSpan (l₁ ++ l₂)
+      --     by induction on l₂.
       sorry

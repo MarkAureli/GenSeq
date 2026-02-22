@@ -1,5 +1,87 @@
 # HANDOFF.md — GenSeq
 
+---
+
+## Current Status — Read This First
+
+**2 sorries remain, both in `GenSeq/Sambale.lean`. Everything else is complete.**
+
+| File | Status |
+|---|---|
+| `GenSeq/OrderedSpan.lean` | ✅ complete |
+| `GenSeq/MapR.lean` | ✅ complete |
+| `GenSeq/Sambale.lean` | ⚠️ 2 sorries |
+
+### Sorry 1: `sambalePerm_prod_apply_zero` (line ~118)
+
+**Goal:**
+```
+n : ℕ, hn : 0 < n, s : Fin (capLog n) → Fin 2, m : Fin n,
+hm : m.val = ∑ k : Fin (capLog n), (s k).val * 2 ^ k.val
+⊢ ((List.range (capLog n)).map (fun k => sambalePerm n k ^
+       if hk : k < capLog n then (s ⟨k, hk⟩).val else 0)
+    |>.prod) (⟨0, hn⟩ : Fin n) = m
+```
+
+**Proof sketch (sub-induction on bits, LSB first):**
+- Induct on `List.range (capLog n)` (or `capLog n` directly), maintaining an invariant:
+  after processing bits `0..K-1`, the partial product applied to 0 equals `∑_{k<K} s_k 2^k`.
+- At step K with bit `s_K`:
+  - If `s_K = 0`: the K-th factor is `sambalePerm n K ^ 0 = 1`; position unchanged.
+  - If `s_K = 1`: let `i₀ = ∑_{k<K} s_k 2^k`. Since `i₀ < 2^K` (sum of K bits each < 2^k)
+    and `i₀ < strideCount n K`, `sambalePerm n K` contains `swap(i₀, i₀ + 2^K)`.
+    All other swaps in `sambalePerm n K` have `j ≠ i₀` and `j + 2^K ≠ i₀`, so they fix `i₀`.
+    Result: `sambalePerm n K i₀ = i₀ + 2^K`.
+- Key lemma needed: for `i₀ < strideCount n K`, applying `sambalePerm n K` to `⟨i₀, _⟩`
+  gives `⟨i₀ + 2^K, _⟩`. Prove this by showing all other swaps have disjoint support from `i₀`.
+  Use `Equiv.swap_apply_of_ne_of_ne` for swaps not involving `i₀`.
+
+### Sorry 2: Inductive step of `sambale_isGeneratingSeq` (line ~200)
+
+**Goal:**
+```
+m : ℕ, ih : Set.univ = orderedSpan (sambale (m + 1)),
+h_stab : orderedSpan ((sambale (m+1)).map (mapR (m+1))) = ↑(mapR (m+1)).range
+⊢ Set.univ = orderedSpan ((sambale (m+1)).map (mapR (m+1)) ++
+                           (List.range (capLog (m+2))).map (sambalePerm (m+2)))
+```
+Depends on Sorry 1 — prove Sorry 1 first.
+
+**Proof sketch:**
+```
+intro σ  -- arbitrary σ : Perm(Fin(m+2))
+-- Step (i): build π_s with π_s 0 = σ 0
+-- Write σ(0) in binary: obtain s via Nat.bits or direct bit extraction
+-- Let π_s := (List.range (capLog (m+2))).map (...) |>.prod
+-- Use sambalePerm_prod_apply_zero to get π_s 0 = σ 0
+-- Step (ii): π_s ∈ orderedSpan (ξ_list) ⊆ orderedSpan Ξ_{m+2}
+-- Each factor is sambalePerm^{s_k} with s_k ∈ {0,1}:
+--   s_k=0 → factor=1 ∈ orderedSpan; s_k=1 → factor=sambalePerm ∈ orderedSpan (by def)
+--   use sambalePerm_mul_self to confirm involutivity (s_k ∈ {0,1} covers both cases)
+-- Step (iii): π_s⁻¹ * σ fixes 0
+--   (π_s⁻¹ * σ) 0 = π_s⁻¹ (σ 0) = π_s⁻¹ (π_s 0) = 0
+-- So π_s⁻¹ * σ ∈ stabZero (m+1) = (mapR (m+1)).range
+-- By h_stab: π_s⁻¹ * σ ∈ orderedSpan (Ξ_{m+1}.map R) ⊆ orderedSpan Ξ_{m+2}
+-- Step (iv): σ = π_s * (π_s⁻¹ * σ)
+--   use orderedSpan membership closure under multiplication
+--   key lemma: if a ∈ orderedSpan l and b ∈ orderedSpan l, need a*b ∈ orderedSpan l
+--   (orderedSpan is not closed under multiplication in general — must use that
+--    π_s ∈ tail and π_s⁻¹*σ ∈ prefix, and use the foldl structure of orderedSpan)
+```
+
+**Note on the closure argument**: orderedSpan is NOT a subgroup, so `a*b ∈ orderedSpan` doesn't
+follow directly. The correct argument is: find `τ ∈ orderedSpan (Ξ_{m+1}.map R)` with `τ = π_s⁻¹*σ`,
+then `π_s * τ ∈ orderedSpan (Ξ_{m+1}.map R ++ ξ_list)` by showing π_s ∈ the appended part and
+using the definition of orderedSpan on concatenated lists. Specifically:
+- `orderedSpan (A ++ B) ⊇ {a * b | a ∈ orderedSpan A, b ∈ orderedSpan B}` — need this lemma
+  or a direct unfolding of `orderedSpan` on append.
+
+### Next actions (in order):
+1. Prove `sambalePerm_prod_apply_zero` — sub-induction on `List.range (capLog n)`
+2. Prove the inductive step using the above sketch
+
+---
+
 ## Goal
 
 Formalise **Theorem 5.16** from Schwiering's master's thesis (2023): the Sambale sequence
@@ -363,7 +445,22 @@ The inductive step:
 
 ## Session Log
 
-### Session 2025-02-22
+### Session 2 (specification/documentation)
+
+**Done:**
+- Moved "Current Status" to top of HANDOFF.md so agents skip background reading.
+- Updated CLAUDE.md workflow to read status section first.
+- Added detailed proof sketches to both remaining sorries in Sambale.lean.
+- Fixed stale sorry counts in MEMORY.md (was: 4 sorries; actual: 2).
+- Confirmed: MapR.lean and sambalePerm_mul_self are fully proved; `stabZero_le_mapR_range` closed.
+
+**Remaining (unchanged):**
+- Sorry 1: `sambalePerm_prod_apply_zero`
+- Sorry 2: inductive step of `sambale_isGeneratingSeq`
+
+---
+
+### Session 1
 
 **Completed:**
 - Created `GenSeq/OrderedSpan.lean`: `orderedSpan` (via `List.foldl`), `IsGeneratingSeq`,

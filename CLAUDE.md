@@ -29,9 +29,11 @@ lake build GenSeq 2>&1 | tail -40
 
 ## Workflow
 
-1. Read `HANDOFF.md` first
-2. Read `AGENTS.md` next
-2. Follow the **Implementation Order** in `HANDOFF.md` step by step
-3. Write code in **10–50 LOC increments**: one definition or one lemma at a time
-4. Build after every increment: `lake build GenSeq 2>&1 | tail -40`
-5. Sorries with documented goal states = success; never leave a sorry undocumented
+1. Read the **`## Current Status`** section at the **top** of `HANDOFF.md` — this tells you
+   exactly what is done and what is left. Read deeper into `HANDOFF.md` only if you need
+   mathematical background.
+2. Read `AGENTS.md` for workflow rules (issue tracking, push policy).
+3. Work on the next sorry listed in `## Current Status`, following its proof sketch.
+4. Write code in **10–50 LOC increments**: one definition or one lemma at a time.
+5. Build after every increment: `lake build GenSeq 2>&1 | tail -40`
+6. Sorries with documented goal states = success; never leave a sorry undocumented.
